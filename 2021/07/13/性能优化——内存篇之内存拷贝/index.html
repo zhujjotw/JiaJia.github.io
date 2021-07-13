@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>性能优化——内存篇之内存拷贝 | Hexo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="&amp;emsp;&amp;emsp;很多时候不去做什么优化，对于基本的应用场景都够用了。硬件资源+合理的框架是保证性能的关键。抠一些小的细节显得不那么必要，也有点重复造轮子的感觉，但是对于自身的学习还是有很大的益处的。 性能优化——内存篇之内存拷贝&amp;emsp;&amp;emsp;数据的传输会发生在用户态用户态之间，也会发生在用户态和内核态之间，用户态之间的拷贝使用库函数memcpy memmove   1234567">
+<meta property="og:type" content="article">
+<meta property="og:title" content="性能优化——内存篇之内存拷贝">
+<meta property="og:url" content="https://zhujjotw.github.io/2021/07/13/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E2%80%94%E2%80%94%E5%86%85%E5%AD%98%E7%AF%87%E4%B9%8B%E5%86%85%E5%AD%98%E6%8B%B7%E8%B4%9D/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="&amp;emsp;&amp;emsp;很多时候不去做什么优化，对于基本的应用场景都够用了。硬件资源+合理的框架是保证性能的关键。抠一些小的细节显得不那么必要，也有点重复造轮子的感觉，但是对于自身的学习还是有很大的益处的。 性能优化——内存篇之内存拷贝&amp;emsp;&amp;emsp;数据的传输会发生在用户态用户态之间，也会发生在用户态和内核态之间，用户态之间的拷贝使用库函数memcpy memmove   1234567">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2021-07-13T02:25:53.000Z">
+<meta property="article:modified_time" content="2021-07-13T02:27:58.684Z">
+<meta property="article:author" content="John Doe">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typeface-source-code-pro@0.0.71/index.min.css">
+
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Hexo</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="https://zhujjotw.github.io"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-性能优化——内存篇之内存拷贝" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2021/07/13/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E2%80%94%E2%80%94%E5%86%85%E5%AD%98%E7%AF%87%E4%B9%8B%E5%86%85%E5%AD%98%E6%8B%B7%E8%B4%9D/" class="article-date">
+  <time class="dt-published" datetime="2021-07-13T02:25:53.000Z" itemprop="datePublished">2021-07-13</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="p-name article-title" itemprop="headline name">
+      性能优化——内存篇之内存拷贝
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <p>&emsp;&emsp;很多时候不去做什么优化，对于基本的应用场景都够用了。硬件资源+合理的框架是保证性能的关键。抠一些小的细节显得不那么必要，也有点重复造轮子的感觉，但是对于自身的学习还是有很大的益处的。</p>
+<h2 id="性能优化——内存篇之内存拷贝"><a href="#性能优化——内存篇之内存拷贝" class="headerlink" title="性能优化——内存篇之内存拷贝"></a>性能优化——内存篇之内存拷贝</h2><p>&emsp;&emsp;数据的传输会发生在用户态用户态之间，也会发生在用户态和内核态之间，用户态之间的拷贝使用库函数memcpy memmove</p>
+  <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">   </span><br><span class="line"><span class="function"><span class="keyword">void</span> *<span class="title">memcpy</span> <span class="params">(<span class="keyword">void</span> *dst, <span class="keyword">void</span> *src, <span class="keyword">size_t</span> length)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">if</span> (<span class="literal">NULL</span> == dst || <span class="literal">NULL</span> == src)  </span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;  </span><br><span class="line">  <span class="keyword">char</span> *temp_dst = (<span class="keyword">char</span>*)dst;  </span><br><span class="line">  <span class="keyword">char</span> *temp_src = (<span class="keyword">char</span>*)src;  </span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">size_t</span> len = <span class="number">0</span>; len &lt; length; ++len) <span class="comment">//从前往后复制  </span></span><br><span class="line">  &#123;</span><br><span class="line">    *temp_dst++ = *temp_src++;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> dst;  </span><br><span class="line">&#125;</span><br><span class="line">  </span><br><span class="line"><span class="function"><span class="keyword">void</span> *<span class="title">memmove</span> <span class="params">(<span class="keyword">void</span> *dst, <span class="keyword">void</span> *src, <span class="keyword">size_t</span> length)</span>  </span></span><br><span class="line"><span class="function"></span>&#123;  </span><br><span class="line">  <span class="keyword">if</span> (<span class="literal">NULL</span> == dst || <span class="literal">NULL</span> == src)  </span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;  </span><br><span class="line">  <span class="keyword">char</span> *temp_dst = (<span class="keyword">char</span>*)dst;  </span><br><span class="line">  <span class="keyword">char</span> *temp_src = (<span class="keyword">char</span>*)src;  </span><br><span class="line">  <span class="keyword">if</span> (temp_src &lt; temp_dst) <span class="comment">//从后往前复制  </span></span><br><span class="line">  &#123;  </span><br><span class="line">    temp_dst += length - <span class="number">1</span>;  </span><br><span class="line">    temp_src += length - <span class="number">1</span>;  </span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">size_t</span> len = <span class="number">0</span>; len &lt; length; ++len)  </span><br><span class="line">    &#123;  </span><br><span class="line">      *temp_dst-- = *temp_src--;  </span><br><span class="line">    &#125;  </span><br><span class="line">  &#125;  </span><br><span class="line">  <span class="keyword">else</span> <span class="comment">//从前往后复制  </span></span><br><span class="line">  &#123; </span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">size_t</span> len = <span class="number">0</span>; len &lt; length; ++len)  </span><br><span class="line">    &#123;  </span><br><span class="line">      *temp_dst++ = *temp_src++;  </span><br><span class="line">    &#125;  </span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> dst;</span><br></pre></td></tr></table></figure>
+
+<p>大量数据的memcpy是会消耗一部分时间的，所以尽量在设计上减少内存的拷贝！！！</p>
+<hr>
+<h3 id="Linux写时拷贝技术-copy-on-write-COW"><a href="#Linux写时拷贝技术-copy-on-write-COW" class="headerlink" title="Linux写时拷贝技术(copy-on-write) ,COW"></a>Linux写时拷贝技术(copy-on-write) ,COW</h3><p>&emsp;&emsp;以fork为例，调用fork()会创建一个新的进程，子进程将会拷贝一份父进程的进程空间数据，这样的优点在于子进程与父进程资源独立，不存在竞争的问题。传统的fork()系统调用直接把所有的资源复制给新创建的进程。这种实现过于简单并且效率低下，因为它拷贝的数据也许并不共享，更糟的情况是，如果新进程打算立即执行一个新的映像，那么所有的拷贝都将前功尽弃，所以只有但内容需要变化时才进行实际物理内存的拷贝， 传统的fork()系统调用直接把所有的资源复制给新创建的进程。这种实现过于简单并且效率低下，因为它拷贝的数据也许并不共享，更糟的情况是，如果新进程打算立即执行一个新的映像，那么所有的拷贝都将前功尽弃。</p>
+<p>&emsp;&emsp;Linux的fork()使用写时拷贝（copy-on-write）页实现。写时拷贝是一种可以推迟甚至免除拷贝数据的技术。内核此时并不复制整个进程地址空间，****而是让父进程和子进程共享同一个拷贝。只有在需要写入的时候，数据才会被复制，从而使各个进程拥有各自的拷贝。也就是说，资源的复制只有在需要写入的时候才进行，在此之前，只是以只读方式共享****。fork()之后，kernel把父进程中所有的内存页的权限都设为read-only，然后子进程的地址空间指向父进程。当父子进程都只读内存时，相安无事。当其中某个进程写内存时，CPU硬件检测到内存页是read-only的，于是触发页异常中断（page-fault），陷入kernel的一个中断例程。中断例程中，kernel就会把触发的异常的页复制一份，于是父子进程各自持有独立的一份。</p>
+<p>&emsp;&emsp;这种技术使地址空间上的页的拷贝被推迟到实际发生写入的时候。在页根本不会被写入的情况下—举例来说，fork()后立即调用exec()—它们就无需复制了。fork()的实际开销就是复制父进程的页表以及给子进程创建惟一的进程描述符。在一般情况下，进程创建后都会马上运行一个可执行的文件，这种优化可以避免拷贝大量根本就不会被使用的数据（地址空间里常常包含数十兆的数据）。由于Unix强调进程快速执行的能力，所以这个优化是很重要的。</p>
+<p>&emsp;&emsp;redis的持久化RDB就是利用了linux的这个特性，RDB过程中会fork一个子进程，子进程做数据备份操作，主进程继续对外提供服务，所有Redis服务不会阻塞</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Redis中的CopyOnWrite</span><br><span class="line"></span><br><span class="line">- Redis在持久化时，如果是采用BGSAVE命令或者BGREWRITEAOF的方式，那Redis会fork出一个子进程来读取数据，从而写到磁盘中。</span><br><span class="line"></span><br><span class="line">- 总体来看，Redis还是读操作比较多。如果子进程存在期间，发生了大量的写操作，那可能就会出现很多的分页错误(页异常中断page-fault)，这样就得耗费不少性能在复制上。</span><br><span class="line"></span><br><span class="line">- 而在rehash阶段上，写操作是无法避免的。所以Redis在fork出子进程之后，将负载因子阈值提高，尽量减少写操作，避免不必要的内存写入操作，最大限度地节约内存。</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;在实际的工程项目中，使用引用计数是在多线程访问同一个资源的情况下，解决这种并发可以使用锁，但是锁无疑是增大了消耗。如果使用引用计数，只有当内存块的引用计数为0时，才可释放该内存。在此过程如果发生写操作，则可以使用写拷贝计数。如下是一个引用计数配合COW的例子，更新完之后再将指针引用到新的内存上，释放原内存，空间换时间。但如果要保证数据的实时性，还是需要使用锁保证，读写锁使用这种情况下</p>
+<p>引用计数配合COW简单实现:</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> std::cout;</span><br><span class="line"><span class="keyword">using</span> std::endl;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">String</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">  <span class="keyword">public</span>:</span><br><span class="line">    <span class="built_in">String</span>()    </span><br><span class="line">    : _pstr(<span class="keyword">new</span> <span class="keyword">char</span>[<span class="number">2</span>]()) <span class="built_in">RefCnt</span>(<span class="number">0</span>)    </span><br><span class="line">    &#123;    </span><br><span class="line">      <span class="built_in">initRefcnt</span>();    </span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">String</span>(<span class="keyword">const</span> <span class="keyword">char</span> * pstr)    </span><br><span class="line">    : _pstr(<span class="keyword">new</span> <span class="keyword">char</span>[<span class="built_in">strlen</span>(pstr)+<span class="number">2</span>]()) <span class="built_in">RefCnt</span>(<span class="number">0</span>)    </span><br><span class="line">    &#123;    </span><br><span class="line">      <span class="built_in">strcpy</span>(_pstr,pstr);    </span><br><span class="line">      <span class="built_in">initRefcnt</span>();    </span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">String</span>(<span class="keyword">const</span> String &amp;rhs)    </span><br><span class="line">    : _pstr(rhs._pstr)    </span><br><span class="line">    &#123;    </span><br><span class="line">      <span class="built_in">increaseRefcnt</span>();    </span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    String &amp; <span class="keyword">operator</span>=(<span class="keyword">const</span> String &amp; rhs)    </span><br><span class="line">    &#123;    </span><br><span class="line">      <span class="keyword">if</span>(<span class="keyword">this</span> != &amp;rhs)    </span><br><span class="line">      &#123;    </span><br><span class="line">        <span class="built_in">decreaseRefcnt</span>();    </span><br><span class="line">        <span class="keyword">if</span>(<span class="built_in">getRefcnt</span>()==<span class="number">0</span>)    </span><br><span class="line">          <span class="keyword">delete</span> [] _pstr;    </span><br><span class="line">        _pstr = rhs._pstr;    </span><br><span class="line">        <span class="built_in">increaseRefcnt</span>();    </span><br><span class="line">      &#125;    </span><br><span class="line">      <span class="keyword">return</span> *<span class="keyword">this</span>;    </span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ~<span class="built_in">String</span>()    </span><br><span class="line">    &#123;    </span><br><span class="line">      <span class="built_in">decreaseRefcnt</span>();    </span><br><span class="line">      <span class="keyword">if</span>(<span class="built_in">getRefcnt</span>()==<span class="number">0</span>)    </span><br><span class="line">      &#123;    </span><br><span class="line">        <span class="keyword">delete</span> [] _pstr;    </span><br><span class="line">        cout &lt;&lt; <span class="string">&quot;~String()&quot;</span> &lt;&lt; endl;   </span><br><span class="line">      &#125;   </span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">size_t</span> <span class="title">size</span><span class="params">()</span> <span class="keyword">const</span>    </span></span><br><span class="line"><span class="function">    </span>&#123;    </span><br><span class="line">      <span class="keyword">return</span> <span class="built_in">strlen</span>(_pstr);    </span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">const</span> <span class="keyword">char</span> * <span class="title">c_str</span><span class="params">()</span> <span class="keyword">const</span>   </span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">      <span class="keyword">return</span> _pstr;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">size_t</span> <span class="title">getRefcnt</span><span class="params">()</span> <span class="keyword">const</span>    </span></span><br><span class="line"><span class="function">    </span>&#123;   </span><br><span class="line">      <span class="keyword">return</span> RefCnt;    </span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">char</span> &amp; <span class="keyword">operator</span>[](<span class="keyword">size_t</span> idx)    </span><br><span class="line">    &#123;    </span><br><span class="line">      <span class="keyword">static</span> <span class="keyword">char</span> nullchar = <span class="string">&#x27;\0&#x27;</span>;    </span><br><span class="line">      <span class="keyword">if</span>(idx &lt; <span class="built_in">size</span>())   </span><br><span class="line">      &#123;    </span><br><span class="line">        <span class="keyword">if</span>(<span class="built_in">getRefcnt</span>()&gt;<span class="number">0</span>)    </span><br><span class="line">        &#123;    </span><br><span class="line">          <span class="built_in">decreaseRefcnt</span>();    </span><br><span class="line">          <span class="keyword">char</span> * ptmp = <span class="keyword">new</span> <span class="keyword">char</span>[<span class="built_in">strlen</span>(_pstr)+<span class="number">2</span>];    </span><br><span class="line">          <span class="built_in">strcpy</span>(ptmp,_pstr);    </span><br><span class="line">          _pstr = ptmp;    </span><br><span class="line">          <span class="built_in">initRefcnt</span>();    </span><br><span class="line">        &#125;    </span><br><span class="line">        <span class="keyword">return</span> _pstr[idx];    </span><br><span class="line">      &#125;    </span><br><span class="line">      <span class="keyword">else</span></span><br><span class="line">      &#123;    </span><br><span class="line">        cout &lt;&lt; <span class="string">&quot;Oops--&gt;index cruptted!&quot;</span> &lt;&lt; endl;    </span><br><span class="line">        <span class="keyword">return</span> nullchar;    </span><br><span class="line">      &#125;    </span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">private</span>:</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">initRefcnt</span><span class="params">()</span></span></span><br><span class="line"><span class="function">    </span>&#123;    </span><br><span class="line">      RefCnt=<span class="number">0</span>;    </span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">increaseRefcnt</span><span class="params">()</span>    </span></span><br><span class="line"><span class="function">    </span>&#123;    </span><br><span class="line">      ++RefCnt;    </span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">decreaseRefcnt</span><span class="params">()</span>    </span></span><br><span class="line"><span class="function">    </span>&#123;    </span><br><span class="line">      --RefCnt;    </span><br><span class="line">    &#125;  </span><br><span class="line">    <span class="keyword">friend</span> std::ostream &amp; <span class="keyword">operator</span>&lt;&lt;(std::ostream &amp; os,<span class="keyword">const</span> String &amp; rhs);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">char</span> * _pstr;   </span><br><span class="line">    <span class="keyword">int</span> RefCnt;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">std::ostream &amp; <span class="keyword">operator</span>&lt;&lt;(std::ostream &amp; os,<span class="keyword">const</span> String &amp; rhs)</span><br><span class="line">&#123;</span><br><span class="line">  os &lt;&lt; rhs._pstr;</span><br><span class="line">  <span class="keyword">return</span> os;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<hr>
+<h3 id="用户态和内核态拷贝的手段"><a href="#用户态和内核态拷贝的手段" class="headerlink" title="用户态和内核态拷贝的手段"></a>用户态和内核态拷贝的手段</h3><ul>
+<li>Netlink(可以使用这一部分作为多进程的通信)</li>
+</ul>
+<p>&emsp;&emsp;Netlink套接字是用以实现用户进程与内核进程通信的一种特殊的进程间通信(IPC) ,也是应用程序与内核通信的最常用的接口方式之一。可以利用Netlink做一个进程间的消息队列</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">优势：</span><br><span class="line">1、 基于套接字方式，对于熟悉网络编程的开发者来说相对简单，内核态代码也只需要做简单初始化就能完成通信。</span><br><span class="line">2、 用户态可以使用epoll 形式，不过多占用CPU资源</span><br><span class="line"></span><br><span class="line">限制：</span><br><span class="line">1、Netlink 目前只支持32个通道，其中内核自己就用了20个通道左右，也就是剩余通道数有限，不能复用。</span><br><span class="line">2、对于网络编程不熟悉的开发者，如果这个通信过程中出问题，或者出现丢包，但是应用中不允许出现丢包问题时，比较难定位</span><br><span class="line">3、仅限于通信，如果需要操作硬件还需要在内核态代码中增加相应处理</span><br></pre></td></tr></table></figure>
+<ul>
+<li>UIO<br>&emsp;&emsp;UIO主要包含两个功能：一是映射物理内存空间到用户态(mmap)，使用户态程序能直接操作硬件寄存器或者部分内核申请的内存；另一个是通过设备状态的变化通知用户态程序有中断产生。<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">优势：</span><br><span class="line">1、 用户态程序能感知到中断状态</span><br><span class="line">2、 用户态程序可以直接操作内存或者寄存器</span><br><span class="line">3、 可以通过直接操作内存进行交互，少了拷贝的动作，效率较高（如果存在大数据的拷贝交换，应使用UIO/mmap）</span><br><span class="line"></span><br><span class="line">劣势：</span><br><span class="line">1、相对于netlink来说内核代码稍微复杂一些，涉及到一些中断处理以及设备创建</span><br><span class="line">2、一个UIO设备只能映射4个地址，如果设备的寄存器多且地址分散，可能需要开多个UIO设备才能满足操作需求。</span><br><span class="line">3、如果通过内存方式交互，竞争处理方式比较复杂，需要开发者用户态和内核态程序操作同一份内存，而不会相互覆盖与竞争。</span><br></pre></td></tr></table></figure></li>
+<li>IOCTL<br>&emsp;&emsp;Ioctl 是内核比较早的一种用户态内核态的交互方式，用户态程序通过命令的方式调用ioctl函数，然后内核态分发到对应驱动处理，最后将处理结果返回到用户态。</li>
+</ul>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*从用户态拷贝数据*/</span></span><br><span class="line"><span class="function"><span class="keyword">unsigned</span> <span class="keyword">long</span> <span class="title">copy_from_user</span><span class="params">(<span class="keyword">void</span> *to, <span class="keyword">const</span> <span class="keyword">void</span> *from, <span class="keyword">unsigned</span> <span class="keyword">long</span> n)</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">/*拷贝数据到用户态*/</span></span><br><span class="line"><span class="function"><span class="keyword">unsigned</span> <span class="keyword">long</span> <span class="title">copy_to_user</span><span class="params">(<span class="keyword">void</span> *to, <span class="keyword">const</span> <span class="keyword">void</span> *from, <span class="keyword">unsigned</span> <span class="keyword">long</span> n)</span></span>;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">优势：</span><br><span class="line">1、IOCTL支持的版本较多，资料非常详细</span><br><span class="line">2、用户态编码简单</span><br><span class="line"></span><br><span class="line">劣势：</span><br><span class="line">1、 IOCTL由于支持的版本较老，新内核有可能不再支持</span><br><span class="line">2、 IOCTL内核态是根据传入的cmd命令字来解析，如果涉及到多个命令需要编写多个函数，代码量相对较多</span><br><span class="line">3、 相对于内存交互，IOCTL需要解析命令字，才能跳转对应处理函数，同时也有拷贝动作</span><br></pre></td></tr></table></figure>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://zhujjotw.github.io/2021/07/13/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E2%80%94%E2%80%94%E5%86%85%E5%AD%98%E7%AF%87%E4%B9%8B%E5%86%85%E5%AD%98%E6%8B%B7%E8%B4%9D/" data-id="ckr1glarv00013al92fbu9ifj" data-title="性能优化——内存篇之内存拷贝" class="article-share-link">Share</a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+  
+    <a href="/2021/07/13/hello-world/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">Hello World</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2021/07/">July 2021</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2021/07/13/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E2%80%94%E2%80%94%E5%86%85%E5%AD%98%E7%AF%87%E4%B9%8B%E5%86%85%E5%AD%98%E6%8B%B7%E8%B4%9D/">性能优化——内存篇之内存拷贝</a>
+          </li>
+        
+          <li>
+            <a href="/2021/07/13/hello-world/">Hello World</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2021 John Doe<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.4.1.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>
